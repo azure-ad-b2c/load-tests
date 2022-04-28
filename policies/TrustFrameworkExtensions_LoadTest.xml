@@ -1,0 +1,219 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<TrustFrameworkPolicy 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+  xmlns="http://schemas.microsoft.com/online/cpim/schemas/2013/06" 
+  PolicySchemaVersion="0.3.0.0" 
+  TenantId="yourtenant.onmicrosoft.com" 
+  PolicyId="B2C_1A_TrustFrameworkExtensions_LoadTest" 
+  PublicPolicyUri="http://yourtenant.onmicrosoft.com/B2C_1A_TrustFrameworkExtensions_LoadTest">
+  
+  <BasePolicy>
+    <TenantId>yourtenant.onmicrosoft.com</TenantId>
+    <PolicyId>B2C_1A_TrustFrameworkExtensions</PolicyId>
+  </BasePolicy>
+
+  <BuildingBlocks>
+    <ClaimsSchema>
+
+      <!-- This claim stores the datetime before calling the Web API -->
+      <ClaimType Id="preApiCall">
+        <DisplayName></DisplayName>
+        <DataType>dateTime</DataType>
+      </ClaimType>     
+      
+      <!-- This claim stores the datetime after calling the Web API -->
+      <ClaimType Id="postApiCall">
+        <DisplayName></DisplayName>
+        <DataType>dateTime</DataType>
+      </ClaimType>           
+
+      <!-- This claim stores the affiliate number returned by the Web API  -->
+      <ClaimType Id="affiliateNumber">
+        <DisplayName></DisplayName>
+        <DataType>int</DataType>
+      </ClaimType>              
+
+      <!-- Claims for App Insights -->
+      <ClaimType Id="EventType">
+        <DisplayName>Event type</DisplayName>
+        <DataType>string</DataType>
+      </ClaimType>
+      <ClaimType Id="EventTimestamp">
+        <DisplayName>Event timestamp</DisplayName>
+        <DataType>string</DataType>
+      </ClaimType>
+      <ClaimType Id="PolicyId">
+        <DisplayName>Policy Id</DisplayName>
+        <DataType>string</DataType>
+      </ClaimType>
+      <ClaimType Id="Culture">
+        <DisplayName>Culture ID</DisplayName>
+        <DataType>string</DataType>
+      </ClaimType>
+      <ClaimType Id="CorrelationId">
+        <DisplayName>Correlation Id</DisplayName>
+        <DataType>string</DataType>
+      </ClaimType>
+      <ClaimType Id="federatedUser">
+        <DisplayName>Federated user</DisplayName>
+        <DataType>boolean</DataType>
+      </ClaimType>
+      <ClaimType Id="parsedDomain">
+        <DisplayName>Domain name</DisplayName>
+        <DataType>string</DataType>
+        <UserHelpText>The domain portion of the email address.</UserHelpText>
+      </ClaimType>
+      <ClaimType Id="userInLocalDirectory">
+        <DisplayName>userInLocalDirectory</DisplayName>
+        <DataType>boolean</DataType>
+      </ClaimType>         
+
+    </ClaimsSchema>
+
+    <ClaimsTransformations>
+
+      <ClaimsTransformation Id="GetPreApiCallDateTime" TransformationMethod="GetCurrentDateTime">
+        <OutputClaims>
+            <OutputClaim ClaimTypeReferenceId="preApiCall" TransformationClaimType="currentDateTime" />
+        </OutputClaims>
+      </ClaimsTransformation>            
+      <ClaimsTransformation Id="GetPostApiCallDateTime" TransformationMethod="GetCurrentDateTime">
+        <OutputClaims>
+            <OutputClaim ClaimTypeReferenceId="postApiCall" TransformationClaimType="currentDateTime" />
+        </OutputClaims>
+      </ClaimsTransformation>        
+
+    </ClaimsTransformations>
+  </BuildingBlocks>
+
+  <ClaimsProviders>
+
+    <ClaimsProvider>
+      <DisplayName>Restful</DisplayName>
+      <TechnicalProfiles>
+        <TechnicalProfile Id="WebAPIGet">
+          <DisplayName>Test Web API Get method</DisplayName>
+          <Protocol Name="Proprietary" Handler="Web.TPEngine.Providers.RestfulProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" />
+          <Metadata>
+            <Item Key="ServiceUrl">[Replace with Web API URL]</Item>
+            <Item Key="AuthenticationType">None</Item>
+            <Item Key="AllowInsecureAuthInProduction">true</Item>
+            <Item Key="SendClaimsIn">QueryString</Item>
+            <Item Key="IncludeClaimResolvingInClaimsHandling">true</Item>          
+            <Item Key="DefaultUserMessageIfRequestFailed">Cannot process your request right now, please try again later.</Item>
+          </Metadata>
+          <InputClaimsTransformations>
+            <InputClaimsTransformation ReferenceId="GetPreApiCallDateTime" />
+          </InputClaimsTransformations>
+          <InputClaims>
+            <InputClaim ClaimTypeReferenceId="signInNames.emailAddress" PartnerClaimType="email" />
+          </InputClaims>
+          <OutputClaims>             
+            <OutputClaim ClaimTypeReferenceId="affiliateNumber" />        
+          </OutputClaims>
+          <OutputClaimsTransformations>
+            <OutputClaimsTransformation ReferenceId="GetPostApiCallDateTime" />
+          </OutputClaimsTransformations>          
+        </TechnicalProfile>
+      </TechnicalProfiles>
+    </ClaimsProvider>    
+
+    <ClaimsProvider>
+      <DisplayName>Application Insights</DisplayName>
+      <TechnicalProfiles>
+        <TechnicalProfile Id="AppInsights-Common">
+          <DisplayName>Application Insights</DisplayName>
+          <Protocol Name="Proprietary" Handler="Web.TPEngine.Providers.Insights.AzureApplicationInsightsProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" />
+          <Metadata>
+            <!-- The ApplicationInsights instrumentation key, which you use for logging the events -->
+            <Item Key="InstrumentationKey">[Replace with App Insights Instrumentation Key]</Item>
+            <Item Key="DeveloperMode">false</Item>
+            <Item Key="DisableTelemetry">false</Item>
+            <Item Key="LogDateTimeClaimWithMs">true</Item>
+          </Metadata>
+          <InputClaims>
+            <!-- Properties of an event are added through the syntax {property:NAME}, where NAME is the property being added to the event. DefaultValue can be either a static value or a value that's resolved by one of the supported DefaultClaimResolvers. -->
+            <InputClaim ClaimTypeReferenceId="EventTimestamp" PartnerClaimType="{property:EventTimestamp}" DefaultValue="{Context:DateTimeInUtc}" />
+            <InputClaim ClaimTypeReferenceId="tenantId" PartnerClaimType="{property:TenantId}" DefaultValue="{Policy:TrustFrameworkTenantId}" />
+            <InputClaim ClaimTypeReferenceId="PolicyId" PartnerClaimType="{property:Policy}" DefaultValue="{Policy:PolicyId}" />
+            <InputClaim ClaimTypeReferenceId="CorrelationId" PartnerClaimType="{property:CorrelationId}" DefaultValue="{Context:CorrelationId}" />
+            <InputClaim ClaimTypeReferenceId="Culture" PartnerClaimType="{property:Culture}" DefaultValue="{Culture:RFC5646}" />
+          </InputClaims>
+        </TechnicalProfile>
+    
+        <TechnicalProfile Id="AppInsights-SignInRequest">
+          <InputClaims>
+            <!-- An input claim with a PartnerClaimType="eventName" is required. This is used by the AzureApplicationInsightsProvider to create an event with the specified value. -->
+            <InputClaim ClaimTypeReferenceId="EventType" PartnerClaimType="eventName" DefaultValue="SignInRequest" />
+          </InputClaims>
+          <IncludeTechnicalProfile ReferenceId="AppInsights-Common" />
+        </TechnicalProfile>
+    
+        <TechnicalProfile Id="AppInsights-UserSignUp">
+          <InputClaims>
+            <InputClaim ClaimTypeReferenceId="EventType" PartnerClaimType="eventName" DefaultValue="UserSignUp" />
+          </InputClaims>
+          <IncludeTechnicalProfile ReferenceId="AppInsights-Common" />
+        </TechnicalProfile>
+    
+        <TechnicalProfile Id="AppInsights-TrackWebApiTime">
+          <InputClaims>
+            <InputClaim ClaimTypeReferenceId="EventType" PartnerClaimType="eventName" DefaultValue="WebApiCalled" />
+            <InputClaim ClaimTypeReferenceId="preApiCall" PartnerClaimType="{property:preApiCall}" />
+            <InputClaim ClaimTypeReferenceId="postApiCall" PartnerClaimType="{property:postApiCall}" />
+            <InputClaim ClaimTypeReferenceId="correlationId" PartnerClaimType="{property:correlationId}" />
+            <InputClaim ClaimTypeReferenceId="signInNames.emailAddress" PartnerClaimType="{property:signInNames.emailAddress}" />
+          </InputClaims>
+          <IncludeTechnicalProfile ReferenceId="AppInsights-Common" />
+        </TechnicalProfile>        
+      
+      </TechnicalProfiles>
+    </ClaimsProvider>    
+
+  </ClaimsProviders>
+
+  <UserJourneys>  
+    <UserJourney Id="SignInLoadTest">
+      <OrchestrationSteps>  
+
+        <!-- This step signs in the user. -->
+        <OrchestrationStep Order="1" Type="CombinedSignInAndSignUp" ContentDefinitionReferenceId="api.signuporsignin">
+          <ClaimsProviderSelections>
+            <ClaimsProviderSelection ValidationClaimsExchangeId="LocalAccountSigninEmailExchange" />
+          </ClaimsProviderSelections>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="LocalAccountSigninEmailExchange" TechnicalProfileReferenceId="SelfAsserted-LocalAccountSignin-Email" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+
+        <!-- This step reads any user attributes that we may not have received when in the token. -->
+        <OrchestrationStep Order="2" Type="ClaimsExchange">
+          <ClaimsExchanges>
+            <ClaimsExchange Id="AADUserReadWithObjectId" TechnicalProfileReferenceId="AAD-UserReadUsingObjectId" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+            
+        <!-- This step calls a Web API to obtain Afilliate Number -->
+        <OrchestrationStep Order="3" Type="ClaimsExchange">
+          <ClaimsExchanges>
+            <ClaimsExchange Id="WebAPIGet" TechnicalProfileReferenceId="WebAPIGet" />
+          </ClaimsExchanges>
+        </OrchestrationStep>                
+
+        <!-- This step sends Web API telemetry to App Insights -->
+        <OrchestrationStep Order="4" Type="ClaimsExchange">
+          <ClaimsExchanges>
+            <ClaimsExchange Id="TrackWebApiTime" TechnicalProfileReferenceId="AppInsights-TrackWebApiTime" />
+          </ClaimsExchanges>
+        </OrchestrationStep>          
+
+        <OrchestrationStep Order="5" Type="SendClaims" CpimIssuerTechnicalProfileReferenceId="JwtIssuer" />
+
+      </OrchestrationSteps>
+      <ClientDefinition ReferenceId="DefaultWeb" />
+    </UserJourney>	
+
+	</UserJourneys>
+
+</TrustFrameworkPolicy>
